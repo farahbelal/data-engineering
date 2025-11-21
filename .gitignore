@@ -1,0 +1,14 @@
+# Ignore datasets
+*.csv
+*.parquet
+*.xlsx
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
