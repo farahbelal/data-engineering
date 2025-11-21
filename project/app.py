@@ -11,7 +11,7 @@ df = load_data()
 
 # 2) Create Dash App
 app = Dash(
-    _name_,
+    __name__,    # FIXED
     external_stylesheets=[dbc.themes.BOOTSTRAP]
 )
 
@@ -25,5 +25,5 @@ app.layout = create_layout(df)
 callbacks.register_callbacks(app, df)
 
 # 5) Run the server
-if _name_ == "_main_":
+if __name__ == "__main__":   # FIXED
     app.run_server(debug=True)
