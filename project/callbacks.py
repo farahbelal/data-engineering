@@ -18,7 +18,7 @@ from utils.load_data import (
 
 def register_callbacks(app, df):
 
-    # Preload possible labels for search parser
+    # Preload possible labels for search parser (optional, not used in this file right now)
     person_types = (
         df[COL_PERSON_TYPE].dropna().unique().tolist()
         if COL_PERSON_TYPE in df.columns
@@ -53,10 +53,10 @@ def register_callbacks(app, df):
     )
     def update_filters(n_clicks, query, b, y, p, inj):
         # Before clicking — leave everything unchanged
-        if n_clicks == 0:
+        if not n_clicks:
             return b, y, p, inj, "Adjust filters or type a search."
 
-        parsed = parse_search_query(query, person_types, injury_types)
+        parsed = parse_search_query(query) or {}
 
         # Auto-fill only empty filters
         b2 = b or parsed.get("borough")
@@ -106,7 +106,7 @@ def register_callbacks(app, df):
     def generate_report(n_clicks, borough, year, vehicle, factor, injury, person_type):
 
         # Before clicking: show entire data
-        if n_clicks == 0:
+        if not n_clicks:
             data = df.copy()
         else:
             data = apply_filters(
@@ -143,26 +143,21 @@ def register_callbacks(app, df):
         # =====================
         # TIME SERIES GRAPH
         # =====================
-        if COL_MONTH in data.columns:
+        if COL_MONTH in data.columns and COL_YEAR in data.columns:
             group = (
                 data.groupby([COL_YEAR, COL_MONTH])
                 .size()
                 .reset_index(name="count")
             )
-            group["YM"] = (
-                group[COL_YEAR].astype(str)
-                + "-"
-                + group[COL_MONTH].astype(str)
-            )
+            group["YM"] = group[COL_YEAR].astype(str) + "-" + group[COL_MONTH].astype(str)
             fig_time = px.line(group, x="YM", y="count", markers=True)
-        else:
+        elif COL_YEAR in data.columns:
             group = data.groupby([COL_YEAR]).size().reset_index(name="count")
             fig_time = px.line(group, x=COL_YEAR, y="count", markers=True)
+        else:
+            fig_time = px.line(title="Year data missing")
 
-        fig_time.update_layout(
-            height=350,
-            margin=dict(l=40, r=20, t=40, b=40),
-        )
+        fig_time.update_layout(height=350, margin=dict(l=40, r=20, t=40, b=40))
 
         # =====================
         # BOROUGH BAR CHART
@@ -174,10 +169,7 @@ def register_callbacks(app, df):
         else:
             fig_boro = px.bar(title="BOROUGH column missing")
 
-        fig_boro.update_layout(
-            height=350,
-            margin=dict(l=40, r=20, t=40, b=40),
-        )
+        fig_boro.update_layout(height=350, margin=dict(l=40, r=20, t=40, b=40))
 
         # =====================
         # INJURY PIE CHART
@@ -200,26 +192,19 @@ def register_callbacks(app, df):
         # =====================
         if COL_LAT in data.columns and COL_LON in data.columns:
             loc = data.dropna(subset=[COL_LAT, COL_LON])
-            if len(loc) > 3000:  # prevent lag
+            if len(loc) > 3000:
                 loc = loc.sample(3000)
             fig_loc = px.scatter_geo(loc, lat=COL_LAT, lon=COL_LON)
         else:
             fig_loc = px.scatter(title="Latitude/Longitude missing")
 
-        fig_loc.update_layout(
-            height=400,
-            margin=dict(l=40, r=20, t=40, b=40),
-        )
+        fig_loc.update_layout(height=400, margin=dict(l=40, r=20, t=40, b=40))
 
         # =====================
         # HEATMAP (HOUR × BOROUGH)
         # =====================
-        if COL_HOUR in data.columns:
-            hm = (
-                data.groupby([COL_BOROUGH, COL_HOUR])
-                .size()
-                .reset_index(name="count")
-            )
+        if COL_HOUR in data.columns and COL_BOROUGH in data.columns:
+            hm = data.groupby([COL_BOROUGH, COL_HOUR]).size().reset_index(name="count")
             fig_heat = px.density_heatmap(
                 hm,
                 x=COL_HOUR,
@@ -228,14 +213,10 @@ def register_callbacks(app, df):
                 nbinsx=24,
             )
         else:
-            fig_heat = px.imshow([[0]], title="Hour data missing")
+            fig_heat = px.imshow([[0]], title="Hour or Borough missing")
 
-        fig_heat.update_layout(
-            height=350,
-            margin=dict(l=40, r=20, t=40, b=40),
-        )
+        fig_heat.update_layout(height=350, margin=dict(l=40, r=20, t=40, b=40))
 
-        # Return KPIs & charts
         return (
             f"{total_crashes:,}",
             f"{total_persons:,}",
