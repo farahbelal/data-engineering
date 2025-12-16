@@ -2,9 +2,9 @@ from dash import Dash
 import dash_bootstrap_components as dbc
 
 
-from components.layout import create_layout
-import callbacks
-from utils.load_data import load_data
+from project.components.layout import create_layout
+from project import callbacks
+from project.utils.load_data import load_data
 
 
 
