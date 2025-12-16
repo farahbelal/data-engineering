@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from utils.load_data import (
+from project.utils.load_data import (
     load_data,
     DEFAULT_DATA_PATH,
     COL_YEAR,
@@ -9,7 +9,7 @@ from utils.load_data import (
     COL_PERSON_TYPE,
     COL_PERSON_INJURY,
 )
-from utils.filters import apply_filters, parse_search_query
+from project.utils.filters import apply_filters, parse_search_query
 
 
 # ---------------------------
