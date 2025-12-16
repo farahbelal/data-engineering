@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import Optional, List, Union, Dict, Any
 
-from utils.load_data import (
+from project.utils.load_data import (
     COL_BOROUGH,
     COL_YEAR,
     COL_MONTH,
