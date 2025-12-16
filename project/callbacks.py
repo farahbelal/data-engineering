@@ -2,8 +2,8 @@ from dash import Input, Output, State
 import plotly.express as px
 import pandas as pd
 
-from utils.filters import parse_search_query, apply_filters
-from utils.load_data import (
+from project.utils.filters import parse_search_query, apply_filters
+from project.utils.load_data import (
     COL_BOROUGH,
     COL_YEAR,
     COL_MONTH,
