@@ -3,9 +3,6 @@ import pandas as pd
 import requests
 from typing import Union
 
-# ===========================
-# Column constants used across the project
-# ===========================
 COL_BOROUGH = "BOROUGH"
 COL_YEAR = "CRASH_YEAR"
 COL_MONTH = "CRASH_MONTH"
@@ -18,73 +15,83 @@ COL_PERSON_TYPE = "PERSON_TYPE"
 COL_VEHICLE_TYPE = "VEHICLE_TYPE_CODE_1"
 COL_FACTOR = "CONTRIBUTING_FACTOR_VEHICLE_1"
 
-# ===========================
-# Path to your final CSV (inside repo / Render disk)
-# ===========================
-DEFAULT_DATA_PATH = (
-    Path(__file__).resolve().parents[1] / "data" / "integrated_cleaned_final.csv"
-)
+DEFAULT_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "integrated_cleaned_final.csv"
 
-# ===========================
-# Google Drive direct download URL
-# ===========================
 CSV_URL = "https://drive.google.com/uc?id=1vJ5IJDLgR2x7_TYkeAWb05EW90jknOcl&export=download"
 
-# ===========================
-# Optional column renames
-# ===========================
 RENAMES = {
-    "BOROUGH ": COL_BOROUGH,
-    "CRASH YEAR": COL_YEAR,
-    "CRASH MONTH": COL_MONTH,
-    "CRASH HOUR": COL_HOUR,
-    "LATITUDE ": COL_LAT,
-    "LONGITUDE ": COL_LON,
+    # NYC open data / common names
+    "BOROUGH": COL_BOROUGH,
+    "COLLISION_ID": COL_COLLISION_ID,
+    "LATITUDE": COL_LAT,
+    "LONGITUDE": COL_LON,
     "VEHICLE TYPE CODE 1": COL_VEHICLE_TYPE,
     "CONTRIBUTING FACTOR VEHICLE 1": COL_FACTOR,
     "PERSON TYPE": COL_PERSON_TYPE,
     "PERSON INJURY": COL_PERSON_INJURY,
-    "COLLISION_ID": COL_COLLISION_ID,
+
+    # if you already have derived columns with spaces
+    "CRASH YEAR": COL_YEAR,
+    "CRASH MONTH": COL_MONTH,
+    "CRASH HOUR": COL_HOUR,
+
+    # sometimes extra spaces
+    "BOROUGH ": COL_BOROUGH,
+    "LATITUDE ": COL_LAT,
+    "LONGITUDE ": COL_LON,
 }
 
+def _download_csv(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    r = requests.get(CSV_URL, timeout=180)
+    r.raise_for_status()
+
+    # If Google Drive returns HTML (permission/confirm page), fail clearly
+    content_type = (r.headers.get("Content-Type") or "").lower()
+    if "text/html" in content_type or r.text.lstrip().startswith("<!doctype html"):
+        raise RuntimeError(
+            "Google Drive returned HTML instead of CSV. "
+            "Fix Drive sharing: Anyone with the link = Viewer."
+        )
+
+    path.write_bytes(r.content)
 
 def load_data(path: Union[Path, str] = DEFAULT_DATA_PATH) -> pd.DataFrame:
-    """
-    Load the cleaned CSV dataset for the dashboard.
-    If the CSV is missing (e.g. on Render), download it from Google Drive.
-    """
     path = Path(path)
 
-    # Download CSV if it doesn't exist (Render case)
     if not path.exists():
         print("CSV not found locally. Downloading from Google Drive...")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        response = requests.get(CSV_URL, timeout=180)
-        response.raise_for_status()
-        path.write_bytes(response.content)
+        _download_csv(path)
 
-    # Load CSV
     df = pd.read_csv(path, low_memory=False)
 
-    # Rename any mismatched columns
+    # Rename
     rename_map = {old: new for old, new in RENAMES.items() if old in df.columns}
     if rename_map:
         df.rename(columns=rename_map, inplace=True)
 
-    # Ensure numeric columns are numeric
+    # If dataset has CRASH DATE/TIME, derive YEAR/MONTH/HOUR (needed by your dashboard)
+    if "CRASH DATE" in df.columns and COL_YEAR not in df.columns:
+        dt = pd.to_datetime(df["CRASH DATE"], errors="coerce")
+        df[COL_YEAR] = dt.dt.year
+        df[COL_MONTH] = dt.dt.month
+
+    if "CRASH TIME" in df.columns and COL_HOUR not in df.columns:
+        t = pd.to_datetime(df["CRASH TIME"], errors="coerce")
+        df[COL_HOUR] = t.dt.hour
+
+    # Ensure numeric
     for col in [COL_YEAR, COL_MONTH, COL_HOUR]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Clean string columns
-    for col in [
-        COL_BOROUGH,
-        COL_PERSON_INJURY,
-        COL_PERSON_TYPE,
-        COL_VEHICLE_TYPE,
-        COL_FACTOR,
-    ]:
+    # Clean strings
+    for col in [COL_BOROUGH, COL_PERSON_INJURY, COL_PERSON_TYPE, COL_VEHICLE_TYPE, COL_FACTOR]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
+
+    print("DATAFRAME SHAPE:", df.shape)
+    print("HAS BOROUGH?", COL_BOROUGH in df.columns, "HAS YEAR?", COL_YEAR in df.columns)
 
     return df
