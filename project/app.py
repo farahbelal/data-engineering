@@ -3,8 +3,9 @@ import dash_bootstrap_components as dbc
 
 
 from components.layout import create_layout
-from utils.load_data import load_data
 import callbacks
+from utils.load_data import load_data
+
 
 
 # 1) Load the cleaned integrated dataset
