@@ -17,7 +17,7 @@ COL_FACTOR = "CONTRIBUTING_FACTOR_VEHICLE_1"
 
 DEFAULT_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "integrated_cleaned_final.csv"
 
-CSV_URL = "https://drive.google.com/uc?id=1vJ5IJDLgR2x7_TYkeAWb05EW90jknOcl&export=download"
+CSV_URL = "https://drive.google.com/uc?export=download&id=1vJ5IJDLgR2x7_TYkeAWb05EW90jknOcl"
 
 RENAMES = {
     # NYC open data / common names
@@ -40,19 +40,40 @@ RENAMES = {
     "LATITUDE ": COL_LAT,
     "LONGITUDE ": COL_LON,
 }
-
 def _download_csv(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    r = requests.get(CSV_URL, timeout=180)
+    session = requests.Session()
+    r = session.get(CSV_URL, stream=True, timeout=180)
+
+    # If Google Drive returns an HTML confirm page, extract the confirm token and retry
+    if "text/html" in (r.headers.get("Content-Type") or "").lower():
+        text = r.text
+        token = None
+
+        # common pattern: confirm=t in the HTML
+        import re
+        m = re.search(r"confirm=([0-9A-Za-z_]+)", text)
+        if m:
+            token = m.group(1)
+
+        if token:
+            url2 = CSV_URL + f"&confirm={token}"
+            r = session.get(url2, stream=True, timeout=180)
+        else:
+            raise RuntimeError(
+                "Google Drive returned HTML instead of CSV (confirm token not found). "
+                "Try sharing as 'Anyone with the link' OR use a different host (Dropbox)."
+            )
+
     r.raise_for_status()
 
-    # If Google Drive returns HTML (permission/confirm page), fail clearly
+    # final safety: still HTML?
     content_type = (r.headers.get("Content-Type") or "").lower()
-    if "text/html" in content_type or r.text.lstrip().startswith("<!doctype html"):
+    if "text/html" in content_type:
         raise RuntimeError(
-            "Google Drive returned HTML instead of CSV. "
-            "Fix Drive sharing: Anyone with the link = Viewer."
+            "Google Drive still returned HTML instead of CSV. "
+            "Use Dropbox direct link or another host."
         )
 
     path.write_bytes(r.content)
