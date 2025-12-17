@@ -57,7 +57,7 @@ def load_data(path: Union[Path, str] = DEFAULT_DATA_PATH) -> pd.DataFrame:
         print("CSV not found locally. Downloading from Google Drive...")
         _download_csv(path)
 
-    df = pd.read_csv(path, low_memory=False)
+ df = pd.read_csv(path, low_memory=False, nrows=300_000)
 
     # Rename
     rename_map = {old: new for old, new in RENAMES.items() if old in df.columns}
