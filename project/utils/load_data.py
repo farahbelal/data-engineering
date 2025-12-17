@@ -1,8 +1,7 @@
 from pathlib import Path
 import pandas as pd
-import requests
 from typing import Union
-
+import gdown
 COL_BOROUGH = "BOROUGH"
 COL_YEAR = "CRASH_YEAR"
 COL_MONTH = "CRASH_MONTH"
@@ -40,43 +39,16 @@ RENAMES = {
     "LATITUDE ": COL_LAT,
     "LONGITUDE ": COL_LON,
 }
+
+
+
+
+GDRIVE_ID = "1vJ5IJDLgR2x7_TYkeAWb05EW90jknOcl"
+
 def _download_csv(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    session = requests.Session()
-    r = session.get(CSV_URL, stream=True, timeout=180)
-
-    # If Google Drive returns an HTML confirm page, extract the confirm token and retry
-    if "text/html" in (r.headers.get("Content-Type") or "").lower():
-        text = r.text
-        token = None
-
-        # common pattern: confirm=t in the HTML
-        import re
-        m = re.search(r"confirm=([0-9A-Za-z_]+)", text)
-        if m:
-            token = m.group(1)
-
-        if token:
-            url2 = CSV_URL + f"&confirm={token}"
-            r = session.get(url2, stream=True, timeout=180)
-        else:
-            raise RuntimeError(
-                "Google Drive returned HTML instead of CSV (confirm token not found). "
-                "Try sharing as 'Anyone with the link' OR use a different host (Dropbox)."
-            )
-
-    r.raise_for_status()
-
-    # final safety: still HTML?
-    content_type = (r.headers.get("Content-Type") or "").lower()
-    if "text/html" in content_type:
-        raise RuntimeError(
-            "Google Drive still returned HTML instead of CSV. "
-            "Use Dropbox direct link or another host."
-        )
-
-    path.write_bytes(r.content)
+    url = f"https://drive.google.com/uc?id={GDRIVE_ID}"
+    gdown.download(url, str(path), quiet=False)
 
 def load_data(path: Union[Path, str] = DEFAULT_DATA_PATH) -> pd.DataFrame:
     path = Path(path)
